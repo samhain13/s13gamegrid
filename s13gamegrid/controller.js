@@ -58,9 +58,9 @@ var gridbox = function(index, row, column) {
     
     this.init = function(boxtype) {
         // Initialises the gridbox instance.
+        this.dict = new dict();   // Reset the dict.
         this.boxtype = boxtype;
         this.boxtype.init(this);  // Initialise the boxtype instance.
-        this.dict = new dict();
         this.get_vicinity();
     };
 };

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Some Game</title>
+        <meta charset="utf-8" />
+        <script src="../../s13gamegrid/jquery.js"></script>
+        <script src="../../s13gamegrid/utilities.js"></script>
+        <script src="../../s13gamegrid/controller.js"></script>
+        <script src="boxtypes.js"></script>
+        <script src="game.js"></script>
+        <style>
+            body { margin: 0px; padding: 0px; }
+            #menu {
+                background: red;
+                float: left;
+                height: 500px;
+                width: 20%;
+            }
+            #stage {
+                background: green;
+                float: right;
+                height: 500px;
+                overflow: auto;
+                width: 80%;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="stage">
+            <div id="grid"></div>
+        </div>
+        <div id="menu">
+            <table></table>
+        </div>
+    </body>
+</html>

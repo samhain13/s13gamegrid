@@ -108,11 +108,15 @@ var stage = {
         // Attach an on_click event to the stage.
         this.box.click(function(e) { stage.on_click(e); });
         // Adjust the grid's width and height.
-        this.box.width(this.grid[this.grid_size-1].box.offset().left +
+        this.box.width(
+            (this.grid[this.grid_size-1].box.offset().left +
             this.grid[this.grid.length-this.grid_size].box.offset().left +
-            this.gridbox_size);
-        this.box.height((this.grid[this.grid.length-1].box.offset().top +
-            (this.gridbox_size * 1.5)) - this.grid[0].box.offset().top);
+            this.gridbox_size) - (this.box.offset().left * 2)
+        );
+        this.box.height(
+            ((this.grid[this.grid.length-1].box.offset().top +
+            (this.gridbox_size * 1.5)) - this.grid[0].box.offset().top)
+        );
     },
     
     "on_click": function(event) {

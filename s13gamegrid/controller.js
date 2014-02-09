@@ -12,12 +12,15 @@ var gridbox_type = function() {
     this.init = function(gb) {
         // This should be called when a gridbox is assigned this type.
     };
+    this.pre_init = function(gb) {
+        // Some tests before assigning a gridbox this type. Optional.
+        return true;
+    };
     this.update = function(gb) {
         // This is called in stage.main every "turn".
     };
 };
 
-//var gridbox = function(gid, index) {
 var gridbox = function(index, row, column) {
     this.box = $('<div id="gridbox-' +index+ '" class="gridbox"></div>');
     this.dict = null;   // To be set by the boxtype object.
@@ -85,7 +88,6 @@ var stage = {
         for (var i=0; i<this.grid_size; i++) {
             var t = i * (this.gridbox_size * ix);
             for (var j=0; j<this.grid_size; j++) {
-                // var gb = new gridbox("gb-" + c + "-row-" + i + "-col-" + j);
                 var gb = new gridbox(c, i, j);
                 var l = (this.grid_size * this.gridbox_size) -
                     (this.gridbox_size * j) + (this.gridbox_size * i * jx);

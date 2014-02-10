@@ -43,6 +43,13 @@ var gridbox = function(index, row, column) {
         } // End of for.
     };
     
+    this.remove_image = function(src) {
+        // Removes an image whose src is src.
+        this.box.find('img[src="'+src+'"]').each( function() {
+            $(this).remove();
+        });
+    };
+    
     this.set_image = function(src, reset) {
         // Places an image inside the gridbox's div.
         var box = this.box;
@@ -61,7 +68,7 @@ var gridbox = function(index, row, column) {
     
     this.init = function(boxtype) {
         // Initialises the gridbox instance.
-        this.dict = new dict();   // Reset the dict.
+        this.dict = {};
         this.boxtype = boxtype;
         this.boxtype.init(this);  // Initialise the boxtype instance.
         this.get_vicinity();

@@ -1,7 +1,8 @@
-var seconds_per_turn = 10;      // Basically, setInterval value * 1000
+var seconds_per_turn = 1;      // Basically, setInterval value * 1000
 var home_box = null;
 var selected_box = null;
 var game_interval = null;
+var game_alive = true;         // False on game over?
 
 // Set the player's and game stats here.
 var game_stats = {
@@ -38,24 +39,29 @@ function hide_menu() {
 }
 
 function show_menu(title, items, gb) {
-    selected_box = gb;
-    selected_box.set_image("res/selected-box.png");
-    var m = $("#gridbox-menu-container");
-    m.html("");
-    m.append($("<h2>" +title+ "</h2>"));
-    $.each(items, function() {
-        var d = $("<div></div>");
-        var a = $("<a></a>");
-        d.append(a);
-        a.text(this[0]);
-        if (this[1].substring(this[1].length-1) != ";") this[1] += ";";
-        a.attr("href", "javascript:" + this[1]);
-        if (this[2] != undefined) d.append($("<span>" +this[2]+ "</span>"));
-        m.append(d);
-    });
-    m.append($('<div><a>[x]</a></div>'));
-    $("#gridbox-menu-container > div:last-child").click( function() { hide_menu(); });
-    $("#gridbox-menu").show();
+    if (game_alive) {
+        selected_box = gb;
+        selected_box.set_image("res/selected-box.png");
+        var m = $("#gridbox-menu-container");
+        m.html("");
+        m.append($("<h2>" +title+ "</h2>"));
+        $.each(items, function() {
+            var d = $("<div></div>");
+            var a = $("<a></a>");
+            d.append(a);
+            a.text(this[0]);
+            if (this[1].substring(this[1].length-1) != ";") this[1] += ";";
+            a.attr("href", "javascript:" + this[1]);
+            if (this[2] != undefined) d.append($("<span>" +this[2]+ "</span>"));
+            m.append(d);
+        });
+        m.append($('<div><a>[x]</a></div>'));
+        $("#gridbox-menu-container > div:last-child").click(
+            function() { hide_menu(); });
+        $("#gridbox-menu").show();
+    } else {
+        alert("Sorry, you're either dead or have gone insane. Game over.");
+    }
 }
 
 function show_stats() {
@@ -87,16 +93,18 @@ function game() {
     // This is the game's "main" function, which is called every x seconds.
     // ------------- Update the player and game stats first.
     update_time();
-    // ------------- Consume resources.
-    var consumers = get_consumers();
-    if (["06:00", "18:00"].indexOf(game_stats["game time"]["hour"]) >= 0) {
-        update_resource(consumers, "rations", "food tins");
-        update_resource(consumers, "water", "water bottles");
-    }
-    // ------------- Update every other box but home_box because we've done that.
-    $.each(stage.grid, function() {
-        if (this != home_box) this.boxtype.update(this);
-    });
+    if (game_alive) {
+        // ------------- Consume resources.
+        var consumers = get_consumers();
+        if (["06:00", "18:00"].indexOf(game_stats["game time"]["hour"]) >= 0) {
+            update_resource(consumers, "rations", "food tins");
+            update_resource(consumers, "water", "water bottles");
+        }
+        // ------------- Update every other box but home_box because we've done that.
+        $.each(stage.grid, function() {
+            if (this != home_box) this.boxtype.update(this);
+        });
+        }
     //------------- Finally, update the display.
     show_stats();
 }
@@ -152,11 +160,22 @@ function pause_game() {
 
 function update_control(consumers, reason) {
     // Computes how much control the player loses when things happen.
-    if (reason == "food") var d = 0.1;    // Some arbitrary score for loss hunger.
-    else var d = 0.1;                     // Default score.
-    if (consumers > 1) {
-        gb.dict["essentials"]["control"] -= consumers * d;
-        // If control goes below 1, reduce the number of people.
+    if (reason == "food") var d = 1;     // Some arbitrary score for hunger.
+    else var d = 1;                      // Default score.
+    game_stats["essentials"]["control"] -= consumers * d;
+    if (game_stats["essentials"]["control"] <= 0) {
+        if (consumers > 1) {
+            // If control goes below 1, reduce the number of people and reset.
+            game_stats["essentials"]["control"] = 100;
+            var x = Object.keys(game_stats["people"]);
+            var y = x[rand_int(x.length-1)];
+            game_stats["people"][y] -= 1;
+            if (game_stats["people"][y] <= 0) delete game_stats["people"][y];
+        } else {
+            // The player goes insane or dies. Game over.
+            game_alive = false;
+            alert("Congratulations, you've gone insane.");
+        }
     }
 }
 

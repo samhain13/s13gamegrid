@@ -1,6 +1,6 @@
 var seconds_per_turn = 10;      // Basically, setInterval value * 1000
 var home_box = null;
-var menu_box_selected = null;
+var selected_box = null;
 var game_interval = null;
 
 // Set the player's and game stats here.
@@ -23,32 +23,39 @@ var game_stats = {
         "ammunition":     0,    // for security/combat
         "batteries":      0,    // for storing energy
         "food tins":      0,    // for making rations
-        "water bottles":  0,    // for getting water
+        "water bottles": 10,    // for getting water
     },
 };
 
 
 function hide_menu() {
-    menu_box_selected.remove_image("res/selected-box.png");
-    menu_box_selected = null;
-    $("#gridbox-menu").html("");
+    if (selected_box != null) {
+        selected_box.remove_image("res/selected-box.png");
+        selected_box = null;
+    }
+    $("#gridbox-menu-container").html("");
+    $("#gridbox-menu").hide();
 }
 
 function show_menu(title, items, gb) {
-    if (menu_box_selected != null) hide_menu();
-    menu_box_selected = gb;
-    menu_box_selected.set_image("res/selected-box.png");
-    var m = $("#gridbox-menu");
+    selected_box = gb;
+    selected_box.set_image("res/selected-box.png");
+    var m = $("#gridbox-menu-container");
     m.html("");
-    m.append($("<h3>" +title+ "</h3>"));
+    m.append($("<h2>" +title+ "</h2>"));
     $.each(items, function() {
+        var d = $("<div></div>");
         var a = $("<a></a>");
+        d.append(a);
         a.text(this[0]);
+        if (this[1].substring(this[1].length-1) != ";") this[1] += ";";
         a.attr("href", "javascript:" + this[1]);
-        m.append(a);
+        if (this[2] != undefined) d.append($("<span>" +this[2]+ "</span>"));
+        m.append(d);
     });
-    m.append($('<a>[x]</a>'));
-    $("#gridbox-menu a:last-child").click( function() { hide_menu(); });
+    m.append($('<div><a>[x]</a></div>'));
+    $("#gridbox-menu-container > div:last-child").click( function() { hide_menu(); });
+    $("#gridbox-menu").show();
 }
 
 function show_stats() {
@@ -81,13 +88,10 @@ function game() {
     // ------------- Update the player and game stats first.
     update_time();
     // ------------- Consume resources.
-    var consumers = 0;
-    $.each(Object.keys(game_stats["people"]), function() {
-        consumers += game_stats["people"][this];
-    });
+    var consumers = get_consumers();
     if (["06:00", "18:00"].indexOf(game_stats["game time"]["hour"]) >= 0) {
         update_resource(consumers, "rations", "food tins");
-        update_resource(consumers, "water", "water jugs");
+        update_resource(consumers, "water", "water bottles");
     }
     // ------------- Update every other box but home_box because we've done that.
     $.each(stage.grid, function() {
@@ -95,6 +99,46 @@ function game() {
     });
     //------------- Finally, update the display.
     show_stats();
+}
+
+function collect_essential(stat_name, resources, requires) {
+    /*
+        Collect essential game_stat from resources available in selected_box.
+        stat_name: game_stat["essentials"][stat_name]
+        resource: {"name0": x, ...} where name0 is in selected_box.dict
+        requires: {"name0": x, ...} where name0 is in game_stat["other resources"]
+            x value is the minimum number to produce one unit of stat_name.
+    */
+    function is_supplied(src, ref) {
+        var s = true;
+        $.each(Object.keys(src), function() { if (ref[this] < src[this]) s = false; });
+        return s;
+    }
+    function use_supply(src, ref) {
+        $.each(Object.keys(src), function() { ref[this] -= src[this]; });
+    }
+    if (!is_supplied(resources, selected_box.dict) ||
+        !is_supplied(requires, game_stats["other supplies"])) {
+            alert("Not enough supplies.");
+        }
+    while (true) {
+        if (!is_supplied(resources, selected_box.dict) ||
+            !is_supplied(requires, game_stats["other supplies"])) break;
+        // Continue.
+        use_supply(resources, selected_box.dict);
+        use_supply(requires, game_stats["other supplies"]);
+        game_stats["essentials"][stat_name] += 1;
+    }
+    hide_menu();
+    $("body").focus();
+}
+
+function get_consumers() {
+    var consumers = 0;
+    $.each(Object.keys(game_stats["people"]), function() {
+        consumers += game_stats["people"][this];
+    });
+    return consumers;
 }
 
 function pause_game() {
@@ -131,6 +175,21 @@ function update_resource(consumers, resource, byproduct) {
     }
 }
 
+function update_supply(base_value, people_bonuses) {
+    /*
+        Updates the amount of supplies available to a gridbox_type.
+        base_value: base increment value
+        people_bonuses: {"p": x, ...} p is a key in game_stats["people"] and
+            x will be multiplied number of p, to be added to base_value;
+    */
+    $.each(Object.keys(people_bonuses), function() {
+        if (Object.keys(game_stats["people"]).indexOf(this) >= 0) {
+            base_value += game_stats["people"][this] * people_bonuses[this];
+        }
+    });
+    return base_value;
+}
+
 function update_time() {
     var gmt = game_stats["game time"];
     var h = parseInt(gmt["hour"].split(":")[0]) + 1;
@@ -145,6 +204,9 @@ $(document).ready( function() {
     // Create the grid.
     stage.init(8, 40);
     stage.set_image("res/stage.jpg");
+    // Adjust the gridbox menu's position.
+    $("#gridbox-menu").css("top", stage.box.offset().top);
+    $("#gridbox-menu").hide();
     // Set the home box; this is where people sleep.
     home_box = stage.grid[11];
     home_box.init(gb_home);

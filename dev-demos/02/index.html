@@ -14,6 +14,7 @@
                 font-family: 62.5;
                 margin: auto;
                 padding: 0px;
+                position: relative;
                 width: 960px;
             }
             h1 { font-size: 1.4em; margin: 0px; padding: 5px; }
@@ -26,7 +27,7 @@
                 overflow: hidden;
                 width: 793px;
             }
-            #menu {
+            #info {
                 background: gray;
                 float: left;
                 height: 508px;
@@ -35,6 +36,7 @@
             }
             #disp-stats { width: 100%; }
             #disp-stats td {
+                background: rgb(200,200,200);
                 border: 1px black solid;
                 font-size: 0.8em;
                 padding: 2px 4px;
@@ -43,35 +45,60 @@
             #disp-stats td[colspan="2"] { background: black; color: white; }
             #disp-stats tr td:first-child { width: 70%; }
             #disp-stats tr td:last-child { text-align: right; width: 30%; }
-            #gridbox-menu { display: block; position: relative; }
-            #gridbox-menu a {
-                border-top: 1px black solid;
+            /* ------------- Menu. */
+            #gridbox-menu {
+                background: rgba(0,0,0,0.7);
+                height: 508px;
+                position: absolute;
+                right: 0px;
+                top: 0px;
+                width: 793px;
+            }
+            #gridbox-menu-container a {
                 color: black;
-                display: block;
-                padding: 2px 4px 2px 8px;
+                font-weight: bold;
                 text-decoration: none;
             }
-            #gridbox-menu a:last-child {
+            #gridbox-menu-container {
+                background: gray;
+                border: 1px black solid;
+                height: 400px;
+                left: 183px;
+                overflow: auto;
+                position: absolute;
+                top: 54px;
+                width: 400px;
+            }
+            #gridbox-menu-container > div {
+                border-top: 1px black solid;
+                padding: 2px 4px 2px 8px;
+            }
+            #gridbox-menu-container > div:last-child {
                 border: 0px;
                 cursor: pointer;
                 font-size: 1.2em;
-                font-weight: bold;
                 right: 0px;
                 padding-top: 5px;
                 position: absolute;
                 top: 0px;
             }
+            #gridbox-menu div > span {
+                display: block;
+                padding: 5px 0px 5px 10px;
+            }
         </style>
     </head>
     <body>
         <h1>Some Game</h1>
-        <div id="stage">
+        <section id="stage">
             <div id="grid"></div>
-        </div>
-        <div id="menu">
+        </section>
+        <section id="info">
             <h2>Info</h2>
             <table id="disp-stats"></table>
-            <nav id="gridbox-menu"></nav>
-        </div>
+        </section>
+        <nav id="gridbox-menu">
+            <div id="gridbox-menu-container"></div>
+        </nav>
     </body>
 </html>

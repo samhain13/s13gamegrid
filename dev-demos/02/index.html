@@ -3,100 +3,39 @@
     <head>
         <title>Some Game</title>
         <meta charset="utf-8" />
+        <link rel="stylesheet" href="styles.css" />
         <script src="../../s13gamegrid/jquery.js"></script>
         <script src="../../s13gamegrid/utilities.js"></script>
         <script src="../../s13gamegrid/controller.js"></script>
         <script src="boxtypes.js"></script>
         <script src="game.js"></script>
-        <style>
-            body {
-                font-family: monospace;
-                font-family: 62.5;
-                margin: auto;
-                padding: 0px;
-                position: relative;
-                width: 960px;
-            }
-            h1 { font-size: 1.4em; margin: 0px; padding: 5px; }
-            h2 { font-size: 1.2em; margin: 0px; padding: 5px; }
-            h3 { font-size: 1.2em; margin: 0px; padding: 5px; }
-            #stage {
-                background: green;
-                float: right;
-                height: 508px;
-                overflow: hidden;
-                width: 793px;
-            }
-            #info {
-                background: gray;
-                float: left;
-                height: 508px;
-                overflow: auto;
-                width: 167px;
-            }
-            #disp-stats { width: 100%; }
-            #disp-stats td {
-                background: rgb(200,200,200);
-                border: 1px black solid;
-                font-size: 0.8em;
-                padding: 2px 4px;
-                vertical-align: top;
-            }
-            #disp-stats td[colspan="2"] { background: black; color: white; }
-            #disp-stats tr td:first-child { width: 70%; }
-            #disp-stats tr td:last-child { text-align: right; width: 30%; }
-            /* ------------- Menu. */
-            #gridbox-menu {
-                background: rgba(0,0,0,0.7);
-                height: 508px;
-                position: absolute;
-                right: 0px;
-                top: 0px;
-                width: 793px;
-            }
-            #gridbox-menu-container a {
-                color: black;
-                font-weight: bold;
-                text-decoration: none;
-            }
-            #gridbox-menu-container {
-                background: gray;
-                border: 1px black solid;
-                height: 400px;
-                left: 183px;
-                overflow: auto;
-                position: absolute;
-                top: 54px;
-                width: 400px;
-            }
-            #gridbox-menu-container > div {
-                border-top: 1px black solid;
-                padding: 2px 4px 2px 8px;
-            }
-            #gridbox-menu-container > div:last-child {
-                border: 0px;
-                cursor: pointer;
-                font-size: 1.2em;
-                right: 0px;
-                padding-top: 5px;
-                position: absolute;
-                top: 0px;
-            }
-            #gridbox-menu div > span {
-                display: block;
-                padding: 5px 0px 5px 10px;
-            }
-        </style>
     </head>
     <body>
         <h1>Some Game</h1>
-        <section id="stage">
-            <div id="grid"></div>
-        </section>
-        <section id="info">
-            <h2>Info</h2>
-            <table id="disp-stats"></table>
-        </section>
+        <div id="main-container">
+            <div id="intro">
+                <h2>Maybe We Should Put A Picture Here Instead</h2>
+                
+                <p> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut dignissim eget turpis eget porttitor. Phasellus facilisis nunc et massa rhoncus, id accumsan eros consectetur. Proin pellentesque sem at volutpat viverra. Fusce sed purus et dolor placerat dapibus sit amet sed tortor. Duis egestas eros et nisi aliquet, nec tristique risus imperdiet. Mauris nunc mauris, suscipit non orci non, cursus porta ipsum. Ut ac ultricies velit. Sed sed tellus quis quam mollis egestas vitae in est. Etiam egestas nulla vel dolor commodo accumsan.</p>
+                
+                <p>Pellentesque in eros in purus elementum viverra et at eros. Nunc mattis volutpat pharetra. Maecenas congue ultricies erat, eget consectetur metus interdum eu. Aenean id tortor tortor. Phasellus ac scelerisque lectus, sit amet commodo libero. Nullam vitae diam ut nibh pulvinar tristique. Nulla diam velit, elementum vel ante sit amet, facilisis commodo lectus. Cras vel ligula ipsum. Integer a sem velit. Sed eget interdum turpis. Fusce ultricies mi et imperdiet semper.</p>
+                
+                <p>In hac habitasse platea dictumst. Ut id lorem eu ipsum ullamcorper varius non in orci. Aliquam erat volutpat. Nunc interdum ultricies pharetra. Phasellus nisi risus, luctus vitae varius eu, fermentum et neque. Sed eget mauris a dui ullamcorper convallis. Etiam vel pellentesque elit. Nullam scelerisque mi lacus, sed placerat magna euismod nec. Duis sagittis pellentesque lorem quis eleifend. Donec vestibulum tortor turpis. Integer aliquet pretium nulla. Pellentesque sodales sapien vitae consectetur rhoncus. Ut ultricies quis arcu et placerat. </p>
+                
+                <p> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut dignissim eget turpis eget porttitor. Phasellus facilisis nunc et massa rhoncus, id accumsan eros consectetur. Proin pellentesque sem at volutpat viverra. Fusce sed purus et dolor placerat dapibus sit amet sed tortor. Duis egestas eros et nisi aliquet, nec tristique risus imperdiet. Mauris nunc mauris, suscipit non orci non, cursus porta ipsum. Ut ac ultricies velit. Sed sed tellus quis quam mollis egestas vitae in est. Etiam egestas nulla vel dolor commodo accumsan.</p>
+                
+                <p>Pellentesque in eros in purus elementum viverra et at eros. Nunc mattis volutpat pharetra. Maecenas congue ultricies erat, eget consectetur metus interdum eu. Aenean id tortor tortor. Phasellus ac scelerisque lectus, sit amet commodo libero. Nullam vitae diam ut nibh pulvinar tristique. Nulla diam velit, elementum vel ante sit amet, facilisis commodo lectus. Cras vel ligula ipsum. Integer a sem velit. Sed eget interdum turpis. Fusce ultricies mi et imperdiet semper.</p>
+                
+                <p><a href="javascript:start_game();">Start the game.</a><br />Remember, DO NOT REFRESH.</p>
+            </div>
+            <section id="stage">
+                <div id="grid"></div>
+            </section>
+            <section id="info">
+                <h2>Info</h2>
+                <table id="disp-stats"></table>
+            </section>
+        </div>
         <nav id="gridbox-menu">
             <div id="gridbox-menu-container"></div>
         </nav>

@@ -1,4 +1,4 @@
-var seconds_per_turn = 1;      // Basically, setInterval value * 1000
+var seconds_per_turn = 5;      // Basically, setInterval value * 1000
 var home_box = null;
 var selected_box = null;
 var game_interval = null;
@@ -22,6 +22,7 @@ var game_stats = {
     },
     "other supplies": {
         "ammunition":     0,    // for security/combat
+        "construction":   0,    // for building structures like windmills
         "batteries":      0,    // for storing energy
         "food tins":      0,    // for making rations
         "water bottles": 10,    // for getting water
@@ -55,7 +56,7 @@ function show_menu(title, items, gb) {
             if (this[2] != undefined) d.append($("<span>" +this[2]+ "</span>"));
             m.append(d);
         });
-        m.append($('<div><a>[x]</a></div>'));
+        m.append($('<div><a>[ close ]</a></div>'));
         $("#gridbox-menu-container > div:last-child").click(
             function() { hide_menu(); });
         $("#gridbox-menu").show();
@@ -174,7 +175,8 @@ function update_control(consumers, reason) {
         } else {
             // The player goes insane or dies. Game over.
             game_alive = false;
-            alert("Congratulations, you've gone insane.");
+            var x = ["you're gone insane!", "you've died of hunger!"];
+            alert("Congratulations, " + x[rand_int(x.length-1)]);
         }
     }
 }
@@ -219,23 +221,28 @@ function update_time() {
 }
 
 
+function start_game() {
+    $("#intro").fadeOut(1000, function() {
+        $("#intro").remove();
+        $("#info, #stage").show();
+        // Create the grid.
+        stage.init(8, 40);
+        stage.set_image("res/stage.jpg");
+        // Set the home box; this is where people sleep.
+        home_box = stage.grid[27];
+        home_box.init(gb_home);
+        // Set the exit boxes so the player can explore, forage, and plunder.
+        // This is also where enemies might come in.
+        stage.grid[23].init(gb_explore);
+        stage.grid[32].init(gb_explore);
+        show_stats();
+        // Start the game.
+        pause_game();
+    });
+}
+
+
 $(document).ready( function() {
-    // Create the grid.
-    stage.init(8, 40);
-    stage.set_image("res/stage.jpg");
-    // Adjust the gridbox menu's position.
-    $("#gridbox-menu").css("top", stage.box.offset().top);
-    $("#gridbox-menu").hide();
-    // Set the home box; this is where people sleep.
-    home_box = stage.grid[11];
-    home_box.init(gb_home);
-    // Set the exit boxes so the player can explore, forage, and plunder.
-    // This is also where enemies might come in.
-    stage.grid[23].init(gb_explore);
-    stage.grid[32].init(gb_explore);
-    // And give the player a source of food and water.
-    stage.grid[12].init(gb_veg_garden);
-    show_stats();
-    // Start the game.
-    pause_game();
+    $("#gridbox-menu").css("top", $("#intro").offset().top);
+    $("#gridbox-menu, #info, #stage").hide();
 });

@@ -29,8 +29,8 @@ h3 { font-size: 1em; font-weight: normal; margin: 0px; padding: 5px; }
 }
 #intro h2 { margin: 0px 0px 18px 0px; padding: 0px; }
 #intro p { font-size: 0.8em; margin: 0px 0px 12px 0px; }
-#intro p:last-child { text-align: center; }
-#intro a { color: yellow; text-decoration: none; }
+#intro p:last-child { padding-top: 10px; text-align: center; }
+#intro a { color: yellow; font-size: 1.2em; text-decoration: none; }
 #stage {
     background: rgb(0,100,0);
     float: right;
@@ -105,5 +105,6 @@ h3 { font-size: 1em; font-weight: normal; margin: 0px; padding: 5px; }
 }
 #gridbox-menu div > span {
     display: block;
+    font-size: 0.9em;
     padding: 5px 0px 5px 10px;
 }

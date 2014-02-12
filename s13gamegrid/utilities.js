@@ -1,6 +1,10 @@
 /*
     Some utilities.
 */
+function rand_choice(list) {
+    return list[rand_int(list.length-1)];
+};
+
 function rand_int(maximum) {
     // Generates a random integer.
     return Math.round(Math.random() * maximum);

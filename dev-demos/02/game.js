@@ -1,4 +1,4 @@
-var seconds_per_turn = 5;      // Basically, setInterval value * 1000
+var seconds_per_turn = 2;      // Basically, setInterval value * 1000
 var home_box = null;
 var selected_box = null;
 var game_interval = null;
@@ -18,7 +18,7 @@ var game_stats = {
     },
     "people": {
         // Different types of people give bonuses to different gridbox_types.
-        "refugees":       1,    // stock person type
+        "refugees":       4,    // stock person type
     },
     "other supplies": {
         "ammunition":     0,    // for security/combat
@@ -29,7 +29,55 @@ var game_stats = {
     },
 };
 
+function get_people(num) {
+    // Get num number of people from the game_stats. Returns an array of
+    // the types of people that have been randomly selected.
+    if (num >= get_consumers()) return [];
+    var people = [];
+    while (people.length != num) {
+        var p = rand_choice(Object.keys(game_stats["people"]));
+        people.push(p);
+        game_stats["people"][p] -= 1;
+        if (game_stats["people"][p] <= 0) delete game_stats["people"][p];
+    }
+    return people;
+}
 
+function get_reward(kind, max_amount) {
+    // Picks a random "other supplies" or "people" type and adds a random
+    // number of it to game_stats. Returns what was selected so it can be
+    // reported back to the player.
+    if (kind == "people") {
+        var r = {};
+        var a = ["farmer", "engineer", "refugee", "medic"];
+        for (var i=0; i<rand_int(max_amount); i++) {
+            var s = rand_choice(a);
+            if (Object.keys(game_stats["people"]).indexOf(s) >= 0) game_stats["people"][s] += 1;
+            else game_stats["people"][s] = 1;
+            if (Object.keys(r).indexOf(s) >= 0) r[s] += 1;
+            else r[s] = 1;
+        }
+        var x = [];
+        $.each(Object.keys(r), function() { x.push(r[this] + " " + this); });
+        return x.join(", ");
+    } else {
+        var a = rand_choice(["ammunition", "construction", "batteries",
+            "food tins", "water bottles"]);
+        var n = rand_int(max_amount) + 1;
+        game_stats["other supplies"][a] += n;
+        return n + " " + a;
+    }
+}
+
+function set_people(people) {
+    // Reverse of get_people.
+    $.each(people, function() {
+        game_stats["people"][this] += 1;
+    });
+}
+
+
+// ------------- Menu controls.
 function hide_menu() {
     if (selected_box != null) {
         selected_box.remove_image("res/selected-box.png");
@@ -37,9 +85,11 @@ function hide_menu() {
     }
     $("#gridbox-menu-container").html("");
     $("#gridbox-menu").hide();
+    pause_game();
 }
 
 function show_menu(title, items, gb) {
+    pause_game();
     if (game_alive) {
         selected_box = gb;
         selected_box.set_image("res/selected-box.png");
@@ -150,15 +200,6 @@ function get_consumers() {
     return consumers;
 }
 
-function pause_game() {
-    if (game_interval == null) {
-        game_interval = setInterval(game, seconds_per_turn * 1000);
-    } else {
-        clearInterval(game_interval);
-        game_interval = null;
-    }
-}
-
 function update_control(consumers, reason) {
     // Computes how much control the player loses when things happen.
     if (reason == "food") var d = 1;     // Some arbitrary score for hunger.
@@ -168,15 +209,14 @@ function update_control(consumers, reason) {
         if (consumers > 1) {
             // If control goes below 1, reduce the number of people and reset.
             game_stats["essentials"]["control"] = 100;
-            var x = Object.keys(game_stats["people"]);
-            var y = x[rand_int(x.length-1)];
+            var y = rand_choice(Object.keys(game_stats["people"]));
             game_stats["people"][y] -= 1;
             if (game_stats["people"][y] <= 0) delete game_stats["people"][y];
         } else {
             // The player goes insane or dies. Game over.
             game_alive = false;
-            var x = ["you're gone insane!", "you've died of hunger!"];
-            alert("Congratulations, " + x[rand_int(x.length-1)]);
+            var x = rand_choice(["you've gone insane!", "you've died of hunger!"]);
+            alert("Congratulations, " + x);
         }
     }
 }
@@ -205,7 +245,7 @@ function update_supply(base_value, people_bonuses) {
     */
     $.each(Object.keys(people_bonuses), function() {
         if (Object.keys(game_stats["people"]).indexOf(this) >= 0) {
-            base_value += game_stats["people"][this] * people_bonuses[this];
+            base_value += game_stats["people"][this] * (people_bonuses[this] + 1);
         }
     });
     return base_value;
@@ -220,6 +260,16 @@ function update_time() {
     // Roll for random event?
 }
 
+
+// ------------- Game controls.
+function pause_game() {
+    if (game_interval == null) {
+        game_interval = setInterval(game, seconds_per_turn * 1000);
+    } else {
+        clearInterval(game_interval);
+        game_interval = null;
+    }
+}
 
 function start_game() {
     $("#intro").fadeOut(1000, function() {

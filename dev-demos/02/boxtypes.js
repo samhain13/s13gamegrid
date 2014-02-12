@@ -44,10 +44,59 @@ gb_home.clicked = function(gb) {
 var gb_explore = new gridbox_type();
 gb_explore.init = function(gb) {
     gb.set_image("res/explore.png", true);
+    gb.dict = {
+        "exp_active": false,   // A switch so we don't sent multiple expeditions.
+        "exp_hours_gone": 0,   // Update when active, expeditions take 72 hours.
+    }
 };
 gb_explore.clicked = function(gb) {
     var menu_items = [];
+    if (!gb.dict["exp_active"]) {
+        menu_items.push(["Send Out Expedition",
+            "selected_box.boxtype.explore(selected_box)",
+            "Send a couple of people out into the wilderness to explore, " +
+            "forage, and scavange. Requires 2 people and 12 rations."]);
+    } else {
+        menu_items.push(["Expedition Status", "hide_menu()",
+            "Hopefully, the expedition will return in " +
+            gb.dict["exp_hours_gone"] + " hour(s)."]);
+    }
     show_menu("Explore Menu", menu_items, gb);
+};
+gb_explore.explore = function(gb) {
+    // Check if the player has enough people and rations.
+    if (get_consumers() >= 3 && game_stats["essentials"]["rations"] >= 12) {
+        gb.dict["exp_active"] = true;
+        gb.dict["exp_hours_gone"] = 72;  // It takes 72 hours to explore.
+        gb.dict["exp_people"] = get_people(2);
+        game_stats["essentials"]["rations"] -= 12;
+    } else {
+        alert("Not enough resources to send expedition.");
+    }
+    hide_menu();
+};
+gb_explore._check_explore = function(gb) {
+    gb.dict["exp_hours_gone"] -= 1;
+    if (gb.dict["exp_hours_gone"] == 0) {
+        gb.dict["exp_active"] = false;
+        // Check if the expedition survived.
+        if (rand_int(99) > 90) {
+            alert("It appears the explorers ran into trouble.\nThey will never return.");
+        } else {
+            set_people(gb.dict["exp_people"]);
+            gb.dict["exp_people"] = [];
+            game_stats["other supplies"]["food tins"] += 12;
+            var l = [];
+            l.push(get_reward("people", 2));
+            l.push(get_reward("supplies", 10));
+            l.push(get_reward("supplies", 10));
+            l.push(get_reward("supplies", 10));
+            alert("Explorers have returned and brought back:\n" + l.join("\n"));
+        }
+    }
+};
+gb_explore.update = function(gb) {
+    if (gb.dict["exp_active"]) this._check_explore(gb);
 };
 
 
@@ -58,7 +107,7 @@ gb_default.register("Wind Turbine", "gb_windmill", "Charge batteries using " +
     "wind energy. Requires 10 units of construction supplies.");
 gb_windmill.pre_init = function(gb) {
     if (game_stats["other supplies"]["construction"] >= 10) {
-        gane_stats["other supplies"]["construction"] -= 10;
+        game_stats["other supplies"]["construction"] -= 10;
         return true;
     } else {
         return "Not enough construction supplies.";

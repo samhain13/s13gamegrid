@@ -1,4 +1,4 @@
-var seconds_per_turn = 0.5;      // Basically, setInterval value * 1000
+var seconds_per_turn = 2;      // Basically, setInterval value * 1000
 var home_box = null;
 var selected_box = null;
 var game_interval = null;
@@ -137,19 +137,26 @@ function show_menu(title, items, gb) {
         selected_box.set_image("res/selected-box.png");
         var m = $("#gridbox-menu-container");
         m.html("");
-        // Check if the selected_box has an enemy in it.
         m.append($("<h2>" +title+ "</h2>"));
-        $.each(items, function() {
-            var d = $("<div></div>");
-            var a = $("<a></a>");
-            d.append(a);
-            a.text(this[0]);
-            if (this[1].substring(this[1].length-1) != ";") this[1] += ";";
-            a.attr("href", "javascript:" + this[1]);
-            if (this[2] != undefined) d.append($("<span>" +this[2]+ "</span>"));
-            m.append(d);
-        });
-        // ...
+        // Check if the selected_box has an enemy in it.
+        var enemy_free = true;
+        $.each(["res/enemy.png"], function() {
+            if (selected_box.has_image(this)) enemy_free = false;
+        })
+        if (enemy_free) {
+            $.each(items, function() {
+                var d = $("<div></div>");
+                var a = $("<a></a>");
+                d.append(a);
+                a.text(this[0]);
+                if (this[1].substring(this[1].length-1) != ";") this[1] += ";";
+                a.attr("href", "javascript:" + this[1]);
+                if (this[2] != undefined) d.append($("<span>" +this[2]+ "</span>"));
+                m.append(d);
+            });
+        } else {
+            m.append("<div>Disabled because there's an enemy in the tile.</div>");
+        }
         m.append($('<div><a>[ close ]</a></div>'));
         $("#gridbox-menu-container > div:last-child").click(
             function() { hide_menu(); });
@@ -197,7 +204,16 @@ function game() {
         }
         // ------------- Update every other box but home_box because we've done that.
         $.each(stage.grid, function() {
-            if (this != home_box) this.boxtype.update(this);
+            if (this != home_box) {
+                if (this.has_image("res/enemy.png")) {
+                    // 25% chance an enemy leaves on its own. Refine this later.
+                    if (rand_int(100) <= 25) this.remove_image("res/enemy.png");
+                } else {
+                    this.boxtype.update(this);
+                    // 5% chance an enemy will occupy a box. Refine this later.
+                    if (rand_int(100) <= 5) this.set_image("res/enemy.png");
+                }
+            }
         });
         }
     //------------- Finally, update the display.
@@ -315,7 +331,7 @@ function pause_game() {
 }
 
 function start_game() {
-    $("#intro").fadeOut(1000, function() {
+    $("#intro").fadeOut(100, function() {
         $("#intro").remove();
         $("#info, #stage").show();
         // Create the grid.

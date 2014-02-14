@@ -43,6 +43,11 @@ var gridbox = function(index, row, column) {
         } // End of for.
     };
     
+    this.has_image = function(src) {
+        // Checks whether the gridbox contains an image with src.
+        return $('#' + this.box.attr("id") + ' img[src="' + src + '"]').length > 0;
+    };
+    
     this.remove_image = function(src) {
         // Removes an image whose src is src.
         this.box.find('img[src="'+src+'"]').each( function() {

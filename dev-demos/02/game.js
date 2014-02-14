@@ -1,4 +1,4 @@
-var seconds_per_turn = 2;      // Basically, setInterval value * 1000
+var seconds_per_turn = 0.5;      // Basically, setInterval value * 1000
 var home_box = null;
 var selected_box = null;
 var game_interval = null;
@@ -7,14 +7,14 @@ var game_alive = true;         // False on game over?
 // Set the player's and game stats here.
 var game_stats = {
     "game time": {
-        "day":           1,
-        "hour":    "07:00",
+        "day":            1,
+        "hour":     "07:00",
     },
     "essentials": {
         "control":      100,    // game over when 0 or less
         "electricity":    0,    // supplied by batteries
-        "rations":       28,    // supplied by food tins
-        "water":          0,    // supplied by water jugs
+        "rations":      112,    // supplied by food tins
+        "water":        112,    // supplied by water jugs
     },
     "people": {
         // Different types of people give bonuses to different gridbox_types.
@@ -25,20 +25,53 @@ var game_stats = {
         "construction":   0,    // for building structures like windmills
         "batteries":      0,    // for storing energy
         "food tins":      0,    // for making rations
-        "water bottles": 10,    // for getting water
+        "water bottles":  0,    // for getting water
     },
 };
 
+// Odds of game stat keys appearing as rewards. We're defining these here
+// so we don't bloat the boxtypes.js file. Odds are x/100.
+var game_stats_odds = {
+    "people": {
+        "refugees":       80,
+        "soldiers":       60,
+        "farmers":        60,
+        "engineers":      50,
+        "medics":         50,
+    },
+    "other supplies": {
+        "ammunition":     60,
+        "construction":   70,
+        "batteries":      50,
+        "food tins":      65,
+        "water bottles":  65,
+    },
+};
+
+function check_essential(subkey, amt) {
+    if (!has_key(game_stats["essentials"], subkey)) return false;
+    else return game_stats["essentials"][subkey] >= amt;
+}
+
+function check_population(amt) {
+    return get_consumers() >= amt;
+}
+
+function check_supply(subkey, amt) {
+    if (!has_key(game_stats["other supplies"], subkey)) return false;
+    else return game_stats["other supplies"][subkey] >= amt;
+}
+
 function get_people(num) {
     // Get num number of people from the game_stats. Returns an array of
-    // the types of people that have been randomly selected.
-    if (num >= get_consumers()) return [];
+    // the types of people that have been randomly selected. This is used
+    // during exploration and combat.
     var people = [];
+    if (num >= get_consumers()) return people;
     while (people.length != num) {
-        var p = rand_choice(Object.keys(game_stats["people"]));
+        var p = rand_choice(keys(game_stats["people"]));
         people.push(p);
-        game_stats["people"][p] -= 1;
-        if (game_stats["people"][p] <= 0) delete game_stats["people"][p];
+        stats_sub("people", p, 1);
     }
     return people;
 }
@@ -49,32 +82,41 @@ function get_reward(kind, max_amount) {
     // reported back to the player.
     if (kind == "people") {
         var r = {};
-        var a = ["farmer", "engineer", "refugee", "medic"];
         for (var i=0; i<rand_int(max_amount); i++) {
-            var s = rand_choice(a);
-            if (Object.keys(game_stats["people"]).indexOf(s) >= 0) game_stats["people"][s] += 1;
-            else game_stats["people"][s] = 1;
-            if (Object.keys(r).indexOf(s) >= 0) r[s] += 1;
+            var s = rand_chance(game_stats_odds["people"]);
+            if (s instanceof String) stats_add("people", s, 1);
+            else s = "useless junk";
+            if (keys(r).indexOf(s) >= 0) r[s] += 1;
             else r[s] = 1;
         }
         var x = [];
-        $.each(Object.keys(r), function() { x.push(r[this] + " " + this); });
+        $.each(keys(r), function() { x.push(r[this] + " " + this); });
         return x.join(", ");
     } else {
-        var a = rand_choice(["ammunition", "construction", "batteries",
-            "food tins", "water bottles"]);
+        var a = rand_chance(game_stats_odds["other supplies"]);
         var n = rand_int(max_amount) + 1;
-        game_stats["other supplies"][a] += n;
-        return n + " " + a;
+        if (a instanceof String) {
+            stats_add("other supplies", a, n);
+            return n + " " + a;
+        } else {
+            return "useless junk";
+        }
     }
 }
 
-function set_people(people) {
-    // Reverse of get_people.
-    $.each(people, function() {
-        game_stats["people"][this] += 1;
-    });
+function stats_add(key, subkey, amt) {
+    // Increments game_stats[key][subkey] by amt. Creates it if still undefined.
+    if (has_key(game_stats[key], subkey)) game_stats[key][subkey] += amt;
+    else game_stats[key][subkey] = amt;
 }
+
+function stats_sub(key, subkey, amt) {
+    // Decrements game_stats[key][subkey] by amt. Deletes it if 0.
+    if (has_key(game_stats[key], subkey)) {
+        game_stats[key][subkey] -= amt;
+        if (game_stats[key][subkey] <= 0) delete game_stats[key][subkey];
+    }
+};
 
 
 // ------------- Menu controls.
@@ -95,6 +137,7 @@ function show_menu(title, items, gb) {
         selected_box.set_image("res/selected-box.png");
         var m = $("#gridbox-menu-container");
         m.html("");
+        // Check if the selected_box has an enemy in it.
         m.append($("<h2>" +title+ "</h2>"));
         $.each(items, function() {
             var d = $("<div></div>");
@@ -106,6 +149,7 @@ function show_menu(title, items, gb) {
             if (this[2] != undefined) d.append($("<span>" +this[2]+ "</span>"));
             m.append(d);
         });
+        // ...
         m.append($('<div><a>[ close ]</a></div>'));
         $("#gridbox-menu-container > div:last-child").click(
             function() { hide_menu(); });
@@ -118,7 +162,7 @@ function show_menu(title, items, gb) {
 function show_stats() {
     var table = $("#disp-stats");
     table.html("");
-    $.each(Object.keys(game_stats), function() {
+    $.each(keys(game_stats), function() {
         var tr = $("<tr></tr>");
         var v = game_stats[this];
         if (v instanceof String || v instanceof Number) {
@@ -128,7 +172,7 @@ function show_stats() {
         } else {
             tr.append($('<td colspan="2">' +title(this)+ '</td>'));
             table.append(tr);
-            $.each(Object.keys(v), function() {
+            $.each(keys(v), function() {
                 var tr2 = $("<tr></tr>");
                 tr2.append($("<td>" +title(this)+ "</td>"));
                 if (isNaN(v[this])) tr2.append($("<td>" +v[this]+ "</td>"));
@@ -170,11 +214,11 @@ function collect_essential(stat_name, resources, requires) {
     */
     function is_supplied(src, ref) {
         var s = true;
-        $.each(Object.keys(src), function() { if (ref[this] < src[this]) s = false; });
+        $.each(keys(src), function() { if (ref[this] < src[this]) s = false; });
         return s;
     }
     function use_supply(src, ref) {
-        $.each(Object.keys(src), function() { ref[this] -= src[this]; });
+        $.each(keys(src), function() { ref[this] -= src[this]; });
     }
     if (!is_supplied(resources, selected_box.dict) ||
         !is_supplied(requires, game_stats["other supplies"])) {
@@ -194,7 +238,7 @@ function collect_essential(stat_name, resources, requires) {
 
 function get_consumers() {
     var consumers = 0;
-    $.each(Object.keys(game_stats["people"]), function() {
+    $.each(keys(game_stats["people"]), function() {
         consumers += game_stats["people"][this];
     });
     return consumers;
@@ -209,7 +253,7 @@ function update_control(consumers, reason) {
         if (consumers > 1) {
             // If control goes below 1, reduce the number of people and reset.
             game_stats["essentials"]["control"] = 100;
-            var y = rand_choice(Object.keys(game_stats["people"]));
+            var y = rand_choice(keys(game_stats["people"]));
             game_stats["people"][y] -= 1;
             if (game_stats["people"][y] <= 0) delete game_stats["people"][y];
         } else {
@@ -226,8 +270,8 @@ function update_resource(consumers, resource, byproduct) {
     // much supplies will be recycled because of the consumption.
     var c = game_stats["essentials"][resource] - consumers;
     if (c >= 0) {
-        if (byproduct != undefined) game_stats["other supplies"][byproduct] +=
-            (game_stats["essentials"][resource] - c);
+        if (byproduct != undefined) stats_add("other supplies", byproduct,
+            game_stats["essentials"][resource] - c);
         game_stats["essentials"][resource] = c;
     } else {
         game_stats["essentials"][resource] = 0;
@@ -243,8 +287,8 @@ function update_supply(base_value, people_bonuses) {
         people_bonuses: {"p": x, ...} p is a key in game_stats["people"] and
             x will be multiplied number of p, to be added to base_value;
     */
-    $.each(Object.keys(people_bonuses), function() {
-        if (Object.keys(game_stats["people"]).indexOf(this) >= 0) {
+    $.each(keys(people_bonuses), function() {
+        if (keys(game_stats["people"]).indexOf(this) >= 0) {
             base_value += game_stats["people"][this] * (people_bonuses[this] + 1);
         }
     });
@@ -257,7 +301,6 @@ function update_time() {
     if (h == 24) { h = 0; gmt["day"] += 1; }
     if (h < 10) h = "0" + h;
     gmt["hour"] = h + ":00";
-    // Roll for random event?
 }
 
 

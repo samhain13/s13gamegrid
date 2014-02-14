@@ -45,8 +45,10 @@ var gb_explore = new gridbox_type();
 gb_explore.init = function(gb) {
     gb.set_image("res/explore.png", true);
     gb.dict = {
-        "exp_active": false,   // A switch so we don't sent multiple expeditions.
-        "exp_hours_gone": 0,   // Update when active, expeditions take 72 hours.
+        "exp_active":  false,   // A switch so we don't sent multiple expeditions.
+        "exp_food_req":   14,   // Required food: 1 ration/day/person.
+        "exp_hours_gone":  0,   // Update when active, expeditions take [below] hours.
+        "exp_days_req":    1,   // Required number of expedition days.
     }
 };
 gb_explore.clicked = function(gb) {
@@ -55,7 +57,8 @@ gb_explore.clicked = function(gb) {
         menu_items.push(["Send Out Expedition",
             "selected_box.boxtype.explore(selected_box)",
             "Send a couple of people out into the wilderness to explore, " +
-            "forage, and scavange. Requires 2 people and 12 rations."]);
+            "forage, and scavange. Requires 2 people and " +
+            gb.dict["exp_food_req"] + " rations and water."]);
     } else {
         menu_items.push(["Expedition Status", "hide_menu()",
             "Hopefully, the expedition will return in " +
@@ -65,11 +68,14 @@ gb_explore.clicked = function(gb) {
 };
 gb_explore.explore = function(gb) {
     // Check if the player has enough people and rations.
-    if (get_consumers() >= 3 && game_stats["essentials"]["rations"] >= 12) {
+    if (check_population(3) &&
+        check_essential("rations", gb.dict["exp_food_req"]) &&
+        check_essential("water", gb.dict["exp_food_req"])) {
         gb.dict["exp_active"] = true;
-        gb.dict["exp_hours_gone"] = 72;  // It takes 72 hours to explore.
+        gb.dict["exp_hours_gone"] = gb.dict["exp_days_req"] * 24;
         gb.dict["exp_people"] = get_people(2);
-        game_stats["essentials"]["rations"] -= 12;
+        stats_sub("essentials", "rations", gb.dict["exp_food_req"]);
+        stats_sub("essentials", "water", gb.dict["exp_food_req"]);
     } else {
         alert("Not enough resources to send expedition.");
     }
@@ -83,9 +89,15 @@ gb_explore._check_explore = function(gb) {
         if (rand_int(99) > 90) {
             alert("It appears the explorers ran into trouble.\nThey will never return.");
         } else {
-            set_people(gb.dict["exp_people"]);
+            // Return the people that participated in the expedition.
+            for (var i=0; i<gb.dict["exp_people"].length; i++) {
+                stats_add("people", gb.dict["exp_people"][i], 1);
+            }
             gb.dict["exp_people"] = [];
-            game_stats["other supplies"]["food tins"] += 12;
+            // Return the food tins and water bottles.
+            stats_add("other supplies", "food tins", gb.dict["exp_food_req"]);
+            stats_add("other supplies", "water bottles", gb.dict["exp_food_req"]);
+            // Get rewards.
             var l = [];
             l.push(get_reward("people", 2));
             l.push(get_reward("supplies", 10));
@@ -133,16 +145,18 @@ gb_veg_garden.init = function(gb) {
     gb.dict = {
         "fruits":     0,
         "vegetables": 0,
-        "water":      8,
+        "water":      0,
     };
 };
 gb_veg_garden.update = function(gb) {
-    if (game_stats["game time"]["hour"] == "06:00") {
-        if (gb.dict["water"] < 10) gb.dict["water"] += 1;
-        if (gb.dict["fruits"] < 10) {
+    var hrs = parseInt(game_stats["game time"]["hour"]);
+    var stl = 56;   // Stock limit.
+    if (in_range(hrs, 6, 13)) {  // Updates between 06:00 and 13:00.
+        if (gb.dict["water"] < stl) gb.dict["water"] += 1;
+        if (gb.dict["fruits"] < stl) {
             gb.dict["fruits"] += update_supply(1, {"farmer": 1});
         }
-        if (gb.dict["vegetables"] < 10) {
+        if (gb.dict["vegetables"] < stl) {
             gb.dict["vegetables"] += update_supply(1, {"farmer": 1});
         }
     }

@@ -48,7 +48,7 @@ gb_explore.init = function(gb) {
         "exp_active":  false,   // A switch so we don't sent multiple expeditions.
         "exp_food_req":   14,   // Required food: 1 ration/day/person.
         "exp_hours_gone":  0,   // Update when active, expeditions take [below] hours.
-        "exp_days_req":    1,   // Required number of expedition days.
+        "exp_days_req":    7,   // Required number of expedition days.
     }
 };
 gb_explore.clicked = function(gb) {
@@ -151,7 +151,7 @@ gb_veg_garden.init = function(gb) {
 gb_veg_garden.update = function(gb) {
     var hrs = parseInt(game_stats["game time"]["hour"]);
     var stl = 56;   // Stock limit.
-    if (in_range(hrs, 6, 13)) {  // Updates between 06:00 and 13:00.
+    if (in_range(hrs, 6, 18)) {  // Updates between 06:00 and 18:00.
         if (gb.dict["water"] < stl) gb.dict["water"] += 1;
         if (gb.dict["fruits"] < stl) {
             gb.dict["fruits"] += update_supply(1, {"farmer": 1});

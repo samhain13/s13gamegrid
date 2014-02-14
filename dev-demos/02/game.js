@@ -3,9 +3,10 @@ var home_box = null;
 var selected_box = null;
 var game_interval = null;
 var game_alive = true;         // False on game over?
+var game_stats = {};
 
 // Set the player's and game stats here.
-var game_stats = {
+game_stats = {
     "game time": {
         "day":            1,
         "hour":     "07:00",
@@ -84,23 +85,20 @@ function get_reward(kind, max_amount) {
         var r = {};
         for (var i=0; i<rand_int(max_amount); i++) {
             var s = rand_chance(game_stats_odds["people"]);
-            if (s instanceof String) stats_add("people", s, 1);
+            if (s != undefined) stats_add("people", s, 1);
             else s = "useless junk";
-            if (keys(r).indexOf(s) >= 0) r[s] += 1;
+            if (has_key(r, s)) r[s] += 1;
             else r[s] = 1;
         }
         var x = [];
-        $.each(keys(r), function() { x.push(r[this] + " " + this); });
+        $.each(keys(r), function() { x.push(r[this] + " " + title(this)); });
         return x.join(", ");
     } else {
         var a = rand_chance(game_stats_odds["other supplies"]);
         var n = rand_int(max_amount) + 1;
-        if (a instanceof String) {
-            stats_add("other supplies", a, n);
-            return n + " " + a;
-        } else {
-            return "useless junk";
-        }
+        if (a != undefined) stats_add("other supplies", a, n);
+        else n = "useless junk";
+        return n + " " + title(a);
     }
 }
 

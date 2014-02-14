@@ -3,7 +3,7 @@
 */
 function has_key(dict, key) {
     // Checks whether a dict has a key.
-    return keys(dict).indexOf(key) >= 0;
+    return keys(dict).join(", ").indexOf(key) >= 0;
 }
 
 function in_range(current_value, low_value, high_value) {

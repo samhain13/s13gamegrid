@@ -1,9 +1,9 @@
-var seconds_per_turn = 2;      // Basically, setInterval value * 1000
+var seconds_per_turn = 5;      // Basically, setInterval value * 1000
 var home_box = null;
 var selected_box = null;
 var game_interval = null;
 var game_alive = true;         // False on game over?
-var game_stats = {};
+var enemy_sprites = ["res/enemy.png"];
 
 // Set the player's and game stats here.
 game_stats = {
@@ -12,8 +12,8 @@ game_stats = {
         "hour":     "07:00",
     },
     "essentials": {
-        "control":      100,    // game over when 0 or less
         "electricity":    0,    // supplied by batteries
+        "morale":       100,    // game over when 0 or less
         "rations":      112,    // supplied by food tins
         "water":        112,    // supplied by water jugs
     },
@@ -137,11 +137,7 @@ function show_menu(title, items, gb) {
         m.html("");
         m.append($("<h2>" +title+ "</h2>"));
         // Check if the selected_box has an enemy in it.
-        var enemy_free = true;
-        $.each(["res/enemy.png"], function() {
-            if (selected_box.has_image(this)) enemy_free = false;
-        })
-        if (enemy_free) {
+        if (!selected_box.has_image("res/enemy")) {
             $.each(items, function() {
                 var d = $("<div></div>");
                 var a = $("<a></a>");
@@ -153,7 +149,20 @@ function show_menu(title, items, gb) {
                 m.append(d);
             });
         } else {
-            m.append("<div>Disabled because there's an enemy in the tile.</div>");
+            var d = $("<div></div>");
+            var t = "There's an enemy in this place. You cannot do anything " +
+                "here until it leaves or it is killed. ";
+            if (check_population(2)) {
+                d.text(t);
+                if (check_supply("ammunition", 10)) var ac = "true";
+                else var ac = "false";
+                d.append('<span><a href="javascript:enemy_fight(' +ac+ ');">' +
+                    'Attack the enemy to free this place.</a></span>');
+            } else {
+                t += "But there is not enough people in the settlement to fight it.";
+                d.text(t);
+            }
+            m.append(d);
         }
         m.append($('<div><a>[ close ]</a></div>'));
         $("#gridbox-menu-container > div:last-child").click(
@@ -188,6 +197,73 @@ function show_stats() {
     });
 }
 
+
+// ------------- Combat functions.
+function enemy_fight(with_ammo) {
+    // Simple combat system.
+    if (selected_box != null) {
+        var ammo_used = 0;
+        var result = "";
+        // Prefer to use soldiers.
+        if (has_key(game_stats["people"], "soliders")) {
+            var p = "soliders";
+            var hp = 120;
+            var dmg = 5;
+        } else {
+            var p = rand_choice(keys(game_stats["people"]));
+            var hp = 80;
+            var dmg = 2;
+        }
+        // Enemy stats.
+        var e_hp = 40;
+        var e_dmg = rand_int(5) + 1;
+        while (hp > 0 && e_hp > 0) {
+            var bonus = 0;
+            if (with_ammo && check_supply("ammunition", 1)) {
+                var bonus = (p == "soliders") ? 15 : 5;
+                ammo_used += 1;
+            }
+            e_hp -= rand_int(dmg);
+            hp -= rand_int(e_dmg + bonus);
+        }
+        if (ammo_used > 0) stats_sub("other supplies", "ammunition", ammo_used);
+        if (with_ammo) result += "Used up " + ammo_used + " ammunition.\n";
+        if (hp <= 0) {
+            result += "1 " +p.substring(0, p.length-1)+ " has been lost.";
+            stats_sub("people", p, 1);
+            stats_sub("essentials", "morale", rand_int(4) + 1);
+        }
+        if (e_hp <= 0) {
+            result += "The enemy has been killed.";
+            stats_add("essentials", "morale", rand_int(15) + 5);
+            enemy_remove(selected_box, true);
+        }
+        show_stats();
+        alert(result);
+    }
+    hide_menu();
+}
+
+function enemy_select(gb) {
+    // Randomly selects an enemy sprite to place in a gridbox.
+    if (rand_int(100) <= 5) {
+        var r = rand_choice(enemy_sprites);
+        gb.set_image(r);
+    }
+}
+
+function enemy_remove(gb, force_remove) {
+    // Removes enemies sprite(s) from a gridbox.
+    // Enemies should be more likely to leave if they're in a gb_default box.
+    if (gb.has_image("res/gb_default")) var odds = 60;
+    else var odds = 20;
+    if (force_remove != undefined) var odds = 101;
+    if (rand_int(100) <= odds) {
+        var e = $("#" + gb.box.attr("id") + " img[src^='res/enemy']");
+        $.each(e, function() { $(this).remove(); });
+    }
+}
+
 // ------------- All update functions come after this one.
 function game() {
     // This is the game's "main" function, which is called every x seconds.
@@ -202,18 +278,16 @@ function game() {
         }
         // ------------- Update every other box but home_box because we've done that.
         $.each(stage.grid, function() {
-            if (this != home_box) {
-                if (this.has_image("res/enemy.png")) {
-                    // 25% chance an enemy leaves on its own. Refine this later.
-                    if (rand_int(100) <= 25) this.remove_image("res/enemy.png");
+            if (this != home_box && !this.has_image("res/explore")) {
+                if (this.has_image("res/enemy")) {
+                    enemy_remove(this);
                 } else {
                     this.boxtype.update(this);
-                    // 5% chance an enemy will occupy a box. Refine this later.
-                    if (rand_int(100) <= 5) this.set_image("res/enemy.png");
+                    enemy_select(this);
                 }
             }
         });
-        }
+    }
     //------------- Finally, update the display.
     show_stats();
 }
@@ -258,15 +332,15 @@ function get_consumers() {
     return consumers;
 }
 
-function update_control(consumers, reason) {
-    // Computes how much control the player loses when things happen.
+function update_morale(consumers, reason) {
+    // Computes how much morale the player loses when things happen.
     if (reason == "food") var d = 1;     // Some arbitrary score for hunger.
     else var d = 1;                      // Default score.
-    game_stats["essentials"]["control"] -= consumers * d;
-    if (game_stats["essentials"]["control"] <= 0) {
+    stats_sub("essentials", "morale", consumers * d);
+    if (!check_essentials("morale", 0)) {
         if (consumers > 1) {
-            // If control goes below 1, reduce the number of people and reset.
-            game_stats["essentials"]["control"] = 100;
+            // If morale goes below 1, reduce the number of people and reset.
+            game_stats["essentials"]["morale"] = 100;
             var y = rand_choice(keys(game_stats["people"]));
             game_stats["people"][y] -= 1;
             if (game_stats["people"][y] <= 0) delete game_stats["people"][y];
@@ -289,8 +363,8 @@ function update_resource(consumers, resource, byproduct) {
         game_stats["essentials"][resource] = c;
     } else {
         game_stats["essentials"][resource] = 0;
-        // Compute how much control the player loses over the settlement.
-        update_control(consumers, resource);
+        // Compute how much morale the player loses over the settlement.
+        update_morale(consumers, resource);
     }
 }
 
@@ -329,7 +403,7 @@ function pause_game() {
 }
 
 function start_game() {
-    $("#intro").fadeOut(100, function() {
+    $("#intro").fadeOut(1000, function() {
         $("#intro").remove();
         $("#info, #stage").show();
         // Create the grid.

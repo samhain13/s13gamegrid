@@ -45,7 +45,7 @@ var gridbox = function(index, row, column) {
     
     this.has_image = function(src) {
         // Checks whether the gridbox contains an image with src.
-        return $('#' + this.box.attr("id") + ' img[src="' + src + '"]').length > 0;
+        return $('#' + this.box.attr("id") + ' img[src^="' + src + '"]').length > 0;
     };
     
     this.remove_image = function(src) {

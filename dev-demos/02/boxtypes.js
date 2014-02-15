@@ -19,8 +19,16 @@ gb_default.build = function(gb_instance) {
     // Show menu link target; builds buildings in place of this
     // gridbox if the gb_instance requirements are satisfied.
     var build_check = gb_instance.pre_init(selected_box);
-    if (build_check == true) selected_box.init(gb_instance);
-    else alert(build_check);
+    if (build_check == true) {
+        selected_box.init(gb_instance);
+        if (!has_key(selected_box.dict, "health")) {
+            selected_box.dict["health_max"] = 100;
+            selected_box.dict["health"] = 100;
+        }
+        show_stats();
+    } else {
+        alert(build_check);
+    }
     hide_menu();   // In game.js.
 };
 
@@ -29,13 +37,35 @@ gb_default.build = function(gb_instance) {
 var gb_home = new gridbox_type();
 gb_home.init = function(gb) {
     gb.set_image("res/home.png", true);
+    gb.dict = {"health_max": 500, "health": 500};
+};
+gb_home.recall_expeditions = function() {
+    if (exp_box1.dict["exp_active"] || exp_box2.dict["exp_active"]) {
+        if (check_essential("electricity", 10)) {
+            exp_box1.dict["exp_hours_gone"] = 0;
+            exp_box1.dict["exp_override"] = true;
+            exp_box2.dict["exp_hours_gone"] = 0;
+            exp_box2.dict["exp_override"] = true;
+            stats_sub("essentials", "electricity", 10);
+            stats_add("other supplies", "batteries", 10);
+        } else {
+            alert("Not enough resources to broadcast a recall order.");
+        }
+    } else {
+        alert("There are no active expeditions to recall.");
+    }
+    hide_menu();
 };
 gb_home.clicked = function(gb) {
     var menu_items = [];
     menu_items.push(["Broadcast Radio Message",
         "alert('Working on it.')",
         "Broadcast a message to attract more refugees (but also risk " +
-        "attracting enemies). Requires 1 unit of energy."]);
+        "attracting enemies). Requires 5 units of electricity."]);
+    menu_items.push(["Recall Expedition",
+        "home_box.boxtype.recall_expeditions()",
+        "Broadcast a scrambled message and order your explorers to return " +
+        "home. Requires 10 units of electricity."]);
     show_menu("Home Menu", menu_items, gb);
 };
 
@@ -49,6 +79,7 @@ gb_explore.init = function(gb) {
         "exp_food_req":   14,   // Required food: 1 ration/day/person.
         "exp_hours_gone":  0,   // Update when active, expeditions take [below] hours.
         "exp_days_req":    7,   // Required number of expedition days.
+        "exp_override": false,  // Was the expedition recalled?
     }
 };
 gb_explore.clicked = function(gb) {
@@ -83,15 +114,14 @@ gb_explore.explore = function(gb) {
 };
 gb_explore._check_explore = function(gb) {
     gb.dict["exp_hours_gone"] -= 1;
-    if (gb.dict["exp_hours_gone"] == 0) {
-        gb.dict["exp_active"] = false;
+    if (gb.dict["exp_hours_gone"] <= 0) {
         // Check if the expedition survived.
         if (rand_int(99) > 90) {
             alert("It appears the explorers ran into trouble.\nThey will never return.");
         } else {
             // Return the people that participated in the expedition.
             for (var i=0; i<gb.dict["exp_people"].length; i++) {
-                stats_add("people", gb.dict["exp_people"][i], 1);
+                stats_add("people", gb.dict["exp_people"][i], 2);
             }
             gb.dict["exp_people"] = [];
             // Return the food tins and water bottles.
@@ -99,12 +129,15 @@ gb_explore._check_explore = function(gb) {
             stats_add("other supplies", "water bottles", gb.dict["exp_food_req"]);
             // Get rewards.
             var l = [];
+            var xp = (gb.dict["exp_override"]) ? 10 : 50;
             l.push(get_reward("people", 2));
-            l.push(get_reward("supplies", 10));
-            l.push(get_reward("supplies", 10));
-            l.push(get_reward("supplies", 10));
+            l.push(get_reward("supplies", xp));
+            l.push(get_reward("supplies", xp));
+            l.push(get_reward("supplies", xp));
             alert("Explorers have returned and brought back:\n" + l.join("\n"));
         }
+        gb.dict["exp_active"] = false;
+        gb.dict["exp_override"] = false;
     }
 };
 gb_explore.update = function(gb) {
@@ -114,10 +147,10 @@ gb_explore.update = function(gb) {
 
 
 // ------------- Buildings that can be built.
-var gb_windmill = new gridbox_type();
+var gb_turbine = new gridbox_type();
 gb_default.register("Wind Turbine", "gb_windmill", "Charge batteries using " +
     "wind energy. Requires 10 units of construction supplies.");
-gb_windmill.pre_init = function(gb) {
+gb_turbine.pre_init = function(gb) {
     if (game_stats["other supplies"]["construction"] >= 10) {
         game_stats["other supplies"]["construction"] -= 10;
         return true;
@@ -125,10 +158,10 @@ gb_windmill.pre_init = function(gb) {
         return "Not enough construction supplies.";
     }
 };
-gb_windmill.init = function(gb) {
+gb_turbine.init = function(gb) {
     gb.box.append($("<span>WIND TURBINE</span>"));
 };
-gb_windmill.clicked = function(gb) {
+gb_turbine.clicked = function(gb) {
     var menu_items = [];
     menu_items.push(["Charge Batteries",
         "alert('Charge batteries.')",
@@ -143,34 +176,72 @@ gb_default.register("Vegetable Garden", "gb_veg_garden",
 gb_veg_garden.init = function(gb) {
     gb.set_image("res/veg-garden.png", true);
     gb.dict = {
-        "fruits":     0,
-        "vegetables": 0,
-        "water":      0,
+        "full_stock":    56,
+        "refill_water":  24,  // Hours until the water stock is refilled.
+        "refill_food":   72,
+        "growing":    false,
+        "grower":      null,
+        "fruits":         0,
+        "vegetables":     0,
+        "water":          0,
     };
 };
-gb_veg_garden.update = function(gb) {
-    var hrs = parseInt(game_stats["game time"]["hour"]);
-    var stl = 56;   // Stock limit.
-    if (in_range(hrs, 6, 18)) {  // Updates between 06:00 and 18:00.
-        if (gb.dict["water"] < stl) gb.dict["water"] += 1;
-        if (gb.dict["fruits"] < stl) {
-            gb.dict["fruits"] += update_supply(1, {"farmer": 1});
+gb_veg_garden.tend_garden = function(gb) {
+    if (!gb.dict["growing"] && get_consumers() >= 1) {
+        if (has_key(game_stats["people"], "farmers")) {
+            gb.dict["refill_food"] = 36;
+            gb.dict["grower"] = "farmers";
+            stats_sub("people", "farmers", 1);
+        } else {
+            gb.dict["refill_food"] = 72;
+            gb.dict["grower"] = get_people(1)[0];
         }
-        if (gb.dict["vegetables"] < stl) {
-            gb.dict["vegetables"] += update_supply(1, {"farmer": 1});
+        gb.dict["growing"] = true;
+    } else {
+        alert("Somebody is already tending to this garden.");
+    }
+    hide_menu();
+};
+gb_veg_garden.update = function(gb) {
+    // Water restocks automatically.
+    if (gb.dict["refill_water"] <= 0) {
+        if (gb.dict["water"] < gb.dict["full_stock"]) gb.dict["water"] += 1;
+        gb.dict["refill_water"] = 24;
+    } else {
+        gb.dict["refill_water"] -= 1;
+    }
+    // Food restock has to be initiated by the player.
+    if (gb.dict["growing"]) {
+        if (gb.dict["refill_food"] <= 0) {
+            gb.dict["fruits"] = gb.dict["full_stock"];
+            gb.dict["vegetables"] = gb.dict["full_stock"];
+            gb.dict["growing"] = false;
+            stats_add("people", gb.dict["grower"], 1);
+            alert("A " + gb.dict["grower"] + " is done growing food in " +
+                "a vegetable garden.\nYou may now collect its produce.");
+        } else {
+            gb.dict["refill_food"] -= 1;
         }
     }
 };
 gb_veg_garden.clicked = function(gb) {
     menu_items = [];
-    menu_items.push(["Collect Water, " +gb.dict["water"]+ " unit(s) available",
-        "collect_essential('water', {'water': 1}, {'water bottles': 1})",
-        "Fill empty water bottles. Requires 1 water bottle and 1 water unit."]);
-    menu_items.push(["Make Rations, "+ gb.dict["fruits"] +
-        " fruit(s) and " +gb.dict["vegetables"]+ " vegetable(s) in stock",
-        "collect_essential('rations', {'fruits': 1, 'vegetables': 1}, {'food tins': 1})",
-        "Fill empty food tins to create rations of fruits and vegetables. " +
-        "Requires 1 food tin, 1 fruit, and 1 vegetable."]);
-    menu_items.push(["Destroy", "selected_box.init(gb_default)", "Destroy this garden."]);
+    if (gb.dict["water"] > 0) {
+        menu_items.push(["Collect Water, " +gb.dict["water"]+ " unit(s) available",
+            'collect_essential("water", {"water": 1}, {"water bottles": 1})',
+            "Fill empty water bottles. Requires 1 water bottle and 1 water unit."]);
+    }
+    if (gb.dict["fruits"] > 0) {
+        menu_items.push(["Make Rations, "+ gb.dict["fruits"] +
+            " fruits and " +gb.dict["vegetables"]+ " vegetables in stock",
+            'collect_essential("rations", {"fruits": 1, "vegetables": 1},' +
+            ' {"food tins": 1})', "Fill empty food tins to create rations " +
+            "of fruits and vegetables. Requires 1 food tin, 1 fruit, and 1 vegetable."]);
+    }
+    if (!gb.dict["growing"]) {
+        menu_items.push(["Tend To The Garden",
+            "selected_box.boxtype.tend_garden(selected_box)",
+            "Assign one person in the settlement to grow fruits and vegetables."]);
+    }
     show_menu("Vegetable Garden", menu_items, gb);
 };

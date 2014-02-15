@@ -1,5 +1,7 @@
 var seconds_per_turn = 5;      // Basically, setInterval value * 1000
 var home_box = null;
+var exp_box1 = null;           // Expedition gate.
+var exp_box2 = null;           // Expedition gate.
 var selected_box = null;
 var game_interval = null;
 var game_alive = true;         // False on game over?
@@ -12,7 +14,7 @@ game_stats = {
         "hour":     "07:00",
     },
     "essentials": {
-        "electricity":    0,    // supplied by batteries
+        "electricity":   20,    // supplied by batteries
         "morale":       100,    // game over when 0 or less
         "rations":      112,    // supplied by food tins
         "water":        112,    // supplied by water jugs
@@ -22,11 +24,11 @@ game_stats = {
         "refugees":       4,    // stock person type
     },
     "other supplies": {
-        "ammunition":     0,    // for security/combat
-        "construction":   0,    // for building structures like windmills
+        "ammunition":    10,    // for security/combat
+        "construction":  10,    // for building structures like windmills
         "batteries":      0,    // for storing energy
-        "food tins":      0,    // for making rations
-        "water bottles":  0,    // for getting water
+        "food tins":     10,    // for making rations
+        "water bottles": 10,    // for getting water
     },
 };
 
@@ -94,6 +96,7 @@ function get_reward(kind, max_amount) {
         $.each(keys(r), function() { x.push(r[this] + " " + title(this)); });
         return x.join(", ");
     } else {
+        // We might want to rethink this.
         var a = rand_chance(game_stats_odds["other supplies"]);
         var n = rand_int(max_amount) + 1;
         if (a != undefined) stats_add("other supplies", a, n);
@@ -106,6 +109,7 @@ function stats_add(key, subkey, amt) {
     // Increments game_stats[key][subkey] by amt. Creates it if still undefined.
     if (has_key(game_stats[key], subkey)) game_stats[key][subkey] += amt;
     else game_stats[key][subkey] = amt;
+    show_stats();
 }
 
 function stats_sub(key, subkey, amt) {
@@ -113,6 +117,7 @@ function stats_sub(key, subkey, amt) {
     if (has_key(game_stats[key], subkey)) {
         game_stats[key][subkey] -= amt;
         if (game_stats[key][subkey] <= 0) delete game_stats[key][subkey];
+        show_stats();
     }
 };
 
@@ -134,6 +139,14 @@ function show_menu(title, items, gb) {
         selected_box = gb;
         selected_box.set_image("res/selected-box.png");
         var m = $("#gridbox-menu-container");
+        if (has_key(selected_box.dict, "health")) {
+            title += " <span>Health: " + selected_box.dict["health"] +
+                " / " + selected_box.dict["health_max"] + "</span>" ;
+            if (selected_box.dict["health"] < selected_box.dict["health_max"]) {
+                items.push(["Repair", "repair_structure()", "Requires 5 construction supplies."]);
+            }
+            items.push(["Destroy", "selected_box.init(gb_default)", "Destroy this structure."]);
+        }
         m.html("");
         m.append($("<h2>" +title+ "</h2>"));
         // Check if the selected_box has an enemy in it.
@@ -219,7 +232,7 @@ function enemy_fight(with_ammo) {
         var e_dmg = rand_int(5) + 1;
         while (hp > 0 && e_hp > 0) {
             var bonus = 0;
-            if (with_ammo && check_supply("ammunition", 1)) {
+            if (with_ammo && ammo_used < game_stats["other supplies"]["ammunition"]) {
                 var bonus = (p == "soliders") ? 15 : 5;
                 ammo_used += 1;
             }
@@ -238,7 +251,6 @@ function enemy_fight(with_ammo) {
             stats_add("essentials", "morale", rand_int(15) + 5);
             enemy_remove(selected_box, true);
         }
-        show_stats();
         alert(result);
     }
     hide_menu();
@@ -256,7 +268,7 @@ function enemy_remove(gb, force_remove) {
     // Removes enemies sprite(s) from a gridbox.
     // Enemies should be more likely to leave if they're in a gb_default box.
     if (gb.has_image("res/gb_default")) var odds = 60;
-    else var odds = 20;
+    else var odds = 10;
     if (force_remove != undefined) var odds = 101;
     if (rand_int(100) <= odds) {
         var e = $("#" + gb.box.attr("id") + " img[src^='res/enemy']");
@@ -278,11 +290,19 @@ function game() {
         }
         // ------------- Update every other box but home_box because we've done that.
         $.each(stage.grid, function() {
-            if (this != home_box && !this.has_image("res/explore")) {
+            if (this != home_box) this.boxtype.update(this);
+            if (!this.has_image("res/explore")) {
                 if (this.has_image("res/enemy")) {
+                    // An incentive for the player to kill enemies.
+                    if (has_key(this.dict, "health")) {
+                        this.dict["health"] -= 1;
+                        if (this.dict["health"] <= 0) {
+                            this.init(gb_default);
+                            alert("Enemies have destroyed a structure.");
+                        }
+                    }
                     enemy_remove(this);
                 } else {
-                    this.boxtype.update(this);
                     enemy_select(this);
                 }
             }
@@ -318,7 +338,7 @@ function collect_essential(stat_name, resources, requires) {
         // Continue.
         use_supply(resources, selected_box.dict);
         use_supply(requires, game_stats["other supplies"]);
-        game_stats["essentials"][stat_name] += 1;
+        stats_add("essentials", stat_name, 1);
     }
     hide_menu();
     $("body").focus();
@@ -332,12 +352,26 @@ function get_consumers() {
     return consumers;
 }
 
+function repair_structure() {
+    if (check_supply("construction", 5)) {
+        var h = 100;
+        if (has_key(selected_box.dict, "health_max")) {
+            var h = selected_box.dict["health_max"];
+        }
+        selected_box.dict["health"] = h;
+        stats_sub("other supplies", "construction", 5);
+    } else {
+        alert("Not enough construction supplies.");
+    }
+    hide_menu();
+}
+
 function update_morale(consumers, reason) {
     // Computes how much morale the player loses when things happen.
     if (reason == "food") var d = 1;     // Some arbitrary score for hunger.
     else var d = 1;                      // Default score.
     stats_sub("essentials", "morale", consumers * d);
-    if (!check_essentials("morale", 0)) {
+    if (!check_essential("morale", 0)) {
         if (consumers > 1) {
             // If morale goes below 1, reduce the number of people and reset.
             game_stats["essentials"]["morale"] = 100;
@@ -375,11 +409,11 @@ function update_supply(base_value, people_bonuses) {
         people_bonuses: {"p": x, ...} p is a key in game_stats["people"] and
             x will be multiplied number of p, to be added to base_value;
     */
-    $.each(keys(people_bonuses), function() {
-        if (keys(game_stats["people"]).indexOf(this) >= 0) {
-            base_value += game_stats["people"][this] * (people_bonuses[this] + 1);
-        }
-    });
+    var pb = keys(people_bonuses);
+    for (var i=0; i<pb.length; i++) {
+        if (has_key(game_stats["people"], pb[i]))
+        { base_value += game_stats["people"][pb[i]] * (pb[i] + 1); }
+    }
     return base_value;
 }
 
@@ -414,8 +448,10 @@ function start_game() {
         home_box.init(gb_home);
         // Set the exit boxes so the player can explore, forage, and plunder.
         // This is also where enemies might come in.
-        stage.grid[23].init(gb_explore);
-        stage.grid[32].init(gb_explore);
+        exp_box1 = stage.grid[23];
+        exp_box2 = stage.grid[32];
+        exp_box1.init(gb_explore);
+        exp_box2.init(gb_explore);
         show_stats();
         // Start the game.
         pause_game();

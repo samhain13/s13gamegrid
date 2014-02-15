@@ -71,6 +71,7 @@ h3 { font-size: 1em; font-weight: normal; margin: 0px; padding: 5px; }
     top: 0px;
     width: 793px;
 }
+#gridbox-menu h2 span { display: block; font-size: 0.6em; padding-left: 10px; }
 #gridbox-menu-container {
     background: rgba(200,200,200,0.8);
     border: 1px black solid;
